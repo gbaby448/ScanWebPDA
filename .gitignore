@@ -1,0 +1,26 @@
+# === Données personnelles & BDD locale ===
+data.db
+proxies.json
+
+# === Environnement Python virtuel ===
+.venv/
+venv/
+env/
+
+# === Cache Python ===
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# === Tests ===
+.pytest_cache/
+*.log
+
+# === IDE ===
+.vscode/
+.idea/
+
+# === OS ===
+Thumbs.db
+.DS_Store

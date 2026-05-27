@@ -1,0 +1,19 @@
+{
+    "references": [
+        "7700599287",
+        "boite de vitesse 7700599287"
+    ],
+    "ntfy_url": "https://ntfy.sh/ScanWebPDA",
+    "search_targets": {
+        "leboncoin.fr": true,
+        "ebay.fr": true,
+        "oscaro.com": true,
+        "mister-auto.com": false,
+        "auto-doc.fr": false,
+        "ovoko.fr": true,
+        "opisto.fr": true,
+        "b-parts.com": true,
+        "allegro.pl": true,
+        "all_web": true
+    }
+}
