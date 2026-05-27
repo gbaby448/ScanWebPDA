@@ -1,6 +1,7 @@
 # === Données personnelles & BDD locale ===
 data.db
 proxies.json
+.github_token
 
 # === Environnement Python virtuel ===
 .venv/

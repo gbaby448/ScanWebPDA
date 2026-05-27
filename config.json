@@ -15,5 +15,8 @@
         "b-parts.com": true,
         "allegro.pl": true,
         "all_web": true
+    },
+    "github": {
+        "check_on_startup": true
     }
 }
