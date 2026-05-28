@@ -1347,8 +1347,19 @@ class ScanWebApp(ctk.CTk):
         """Redémarre l'application."""
         popup.destroy()
         self.on_closing()
-        python = sys.executable
-        os.execv(python, [python] + sys.argv)
+        
+        import subprocess
+        try:
+            if getattr(sys, 'frozen', False):
+                # Version compilee PyInstaller (.exe)
+                subprocess.Popen([sys.executable])
+            else:
+                # Script Python de developpement
+                subprocess.Popen([sys.executable] + sys.argv)
+        except Exception as e:
+            # Au cas ou Popen echouerait exceptionnellement
+            pass
+        sys.exit(0)
 
     # ==========================================
     # FERMETURE PROPRE
