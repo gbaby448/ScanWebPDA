@@ -17,7 +17,7 @@ def _sanitize_prompt_input(text, max_length=200):
     text = text.replace('\n', ' ').replace('\r', ' ')
     return text[:max_length]
 
-def is_mechanical_part(title, reference, ollama_url="http://127.0.0.1:11434"):
+def is_mechanical_part(title, reference, ollama_url="http://localhost:11434"):
     """
     Interroge le modèle local qwen2.5-coder:7b pour valider si le titre de l'annonce
     correspond réellement à une pièce mécanique/physique automobile en lien avec la référence.
@@ -71,7 +71,7 @@ def is_mechanical_part(title, reference, ollama_url="http://127.0.0.1:11434"):
         print(f"Erreur de connexion à Ollama lors de l'analyse sémantique: {e}")
         return False
 
-def translate_to_french(text, ollama_url="http://127.0.0.1:11434"):
+def translate_to_french(text, ollama_url="http://localhost:11434"):
     """
     Demande à l'Ollama local de traduire le titre en Français si ce n'est pas déjà le cas.
     Répond uniquement par le titre traduit en français, sans commentaire.
@@ -114,7 +114,7 @@ def translate_to_french(text, ollama_url="http://127.0.0.1:11434"):
         print(f"Erreur de traduction avec Ollama: {e}")
     return text
 
-def check_ollama_status(ollama_url="http://127.0.0.1:11434"):
+def check_ollama_status(ollama_url="http://localhost:11434"):
     """
     Vérifie si Ollama est joignable sur l'adresse et le port configurés.
     """
