@@ -39,16 +39,16 @@ RESET  = "\033[0m"  if _USE_COLOR else ""
 
 def banner():
     print(f"""
-{CYAN}{BOLD}╔══════════════════════════════════════════════╗
-║   ScanWebPDA — Publication automatique      ║
-║   github.com/{GITHUB_OWNER}/{GITHUB_REPO}   ║
-╚══════════════════════════════════════════════╝{RESET}
+{CYAN}{BOLD}+----------------------------------------------+
+|   ScanWebPDA -- Publication automatique      |
+|   github.com/{GITHUB_OWNER}/{GITHUB_REPO}   |
++----------------------------------------------+{RESET}
 """)
 
-def ok(msg):    print(f"  {GREEN}✔{RESET}  {msg}")
-def warn(msg):  print(f"  {YELLOW}⚠{RESET}  {msg}")
-def error(msg): print(f"  {RED}✘{RESET}  {msg}")
-def step(msg):  print(f"\n{BOLD}{CYAN}▶ {msg}{RESET}")
+def ok(msg):    print(f"  {GREEN}[OK]{RESET}  {msg}")
+def warn(msg):  print(f"  {YELLOW}[WARN]{RESET}  {msg}")
+def error(msg): print(f"  {RED}[ERROR]{RESET}  {msg}")
+def step(msg):  print(f"\n{BOLD}{CYAN}>>> {msg}{RESET}")
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -224,11 +224,11 @@ def main():
 
     # ── Récapitulatif ───────────────────────────────────────────────────────
     print(f"""
-{BOLD}╔══════ RÉCAPITULATIF ══════════════════════════════╗{RESET}
-  Dépôt      : {CYAN}github.com/{GITHUB_OWNER}/{GITHUB_REPO}{RESET}
-  Version    : {BOLD}v{current}{RESET}  →  {GREEN}{BOLD}v{new_version}{RESET}
+{BOLD}+------ RECAPITULATIF ------------------------------+
+  Depot      : {CYAN}github.com/{GITHUB_OWNER}/{GITHUB_REPO}{RESET}
+  Version    : {BOLD}v{current}{RESET}  ->  {GREEN}{BOLD}v{new_version}{RESET}
   Release    : v{new_version} - {datetime.now().strftime("%d/%m/%Y")}
-{BOLD}╚═══════════════════════════════════════════════════╝{RESET}""")
++---------------------------------------------------+{RESET}""")
 
     confirm = input(f"\n  {BOLD}Confirmer la publication ? [O/n] : {RESET}").strip().lower()
     if confirm in ("n", "non", "no"):
@@ -240,7 +240,7 @@ def main():
     # ── 5. Mise à jour version.py ───────────────────────────────────────────
     step("Mise à jour de version.py")
     write_version(new_version)
-    ok(f"version.py → VERSION = \"{new_version}\"")
+    ok(f"version.py -> VERSION = \"{new_version}\"")
 
     # ── 6. Git add + commit ─────────────────────────────────────────────────
     step("Commit Git")
@@ -291,11 +291,11 @@ def main():
 
     if created:
         print(f"""
-{GREEN}{BOLD}╔══════════════════════════════════════════════════╗
-║   ✅  Publication réussie !                      ║
-║   Les utilisateurs verront la mise à jour         ║
-║   automatiquement au prochain démarrage.          ║
-╚══════════════════════════════════════════════════╝{RESET}
+{GREEN}{BOLD}+--------------------------------------------------+
+|   [SUCCESS] Publication reussie !                |
+|   Les utilisateurs verront la mise a jour        |
+|   automatiquement au prochain demarrage.         |
++--------------------------------------------------+{RESET}
 """)
     else:
         error("La release GitHub n'a pas pu être créée.")
