@@ -10,6 +10,7 @@ import io
 import requests
 from PIL import Image, ImageDraw
 import main
+import database
 import ai_filter
 import updater
 from version import VERSION
