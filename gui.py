@@ -1344,17 +1344,29 @@ class ScanWebApp(ctk.CTk):
         ).pack(pady=14)
 
     def _restart_app(self, popup):
-        """Redémarre l'application."""
+        """Redémarre l'application en construisant la commande exacte du raccourci."""
         import subprocess
         try:
             if getattr(sys, 'frozen', False):
-                # Version compilee PyInstaller (.exe)
+                # Version compilee PyInstaller (.exe) — relancer l'exe directement
                 subprocess.Popen([sys.executable])
             else:
-                # Script Python de developpement
-                subprocess.Popen([sys.executable] + sys.argv)
-        except Exception as e:
-            # Au cas ou Popen echouerait exceptionnellement
+                # Script Python : on reconstruit la commande exacte du raccourci Windows
+                # Le raccourci fait : pythonw.exe "<install_dir>\gui.py"
+                # On utilise pythonw.exe pour eviter la fenetre console noire
+                pythonw = sys.executable.replace("python.exe", "pythonw.exe")
+                if not os.path.exists(pythonw):
+                    pythonw = sys.executable  # fallback si pythonw.exe absent
+                
+                # Chemin absolu du script gui.py dans le repertoire de l'application
+                install_dir = os.path.dirname(os.path.abspath(__file__))
+                gui_script = os.path.join(install_dir, "gui.py")
+                
+                subprocess.Popen(
+                    [pythonw, gui_script],
+                    cwd=install_dir
+                )
+        except Exception:
             pass
             
         popup.destroy()

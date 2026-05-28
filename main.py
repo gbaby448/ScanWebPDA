@@ -357,7 +357,10 @@ class SurveillanceEngine:
 
                         # Extraction de l'image et du domaine source
                         domain, image_url = extract_og_metadata(url)
-                        self._log(f"   Source : {domain} | Aperçu Image : {image_url is not None}")
+                        # S'assurer que domain est coherent avec parsed_domain
+                        if not domain:
+                            domain = parsed_domain
+                        self._log(f"   Source : {domain} | Apercu Image : {image_url is not None}")
                         
                         # Enregistrer en BDD avec image, domaine, pays et traduction
                         database.add_item(
@@ -373,8 +376,12 @@ class SurveillanceEngine:
                         )
                         
                         # Envoyer la notification ntfy (une seule fois par annonce)
+                        # On verifie avec LES DEUX cles possibles (url + title/domain)
                         if ntfy_url:
-                            if not database.has_been_notified(url, title=title, source_domain=domain):
+                            already_notified = database.has_been_notified(
+                                url, title=title, source_domain=domain
+                            )
+                            if not already_notified:
                                 notifier.send_notification(
                                     ntfy_url,
                                     ref,
@@ -384,15 +391,16 @@ class SurveillanceEngine:
                                     country=country,
                                     translated_title=translated_title
                                 )
+                                # Marquer immediatement AVANT le prochain cycle
                                 database.mark_as_notified(url)
-                                self._log("--> Notification ntfy envoyée.")
+                                self._log("---> Notification ntfy envoyee.")
                             else:
-                                self._log("--> Notification déjà envoyée pour cette annonce, ignorée.")
+                                self._log("---> Notification deja envoyee pour cette annonce, ignoree.")
                         else:
-                            self._log("--> Alerte non envoyée (lien ntfy non configuré)")
+                            self._log("---> Alerte non envoyee (lien ntfy non configure)")
                     else:
-                        self._log(f"-> [REJETÉ par l'IA] Ce n'est pas une pièce mécanique.")
-                        # country est déjà calculé avant les filtres (pas de double appel)
+                        self._log(f"-> [REJETE par l'IA] Ce n'est pas une piece mecanique.")
+                        # country est deja calcule avant les filtres (pas de double appel)
                         database.add_item(ref, title, url, price, is_part=0, source_domain=parsed_domain, country=country)
 
                     # Pause courte entre les analyses pour éviter de saturer Ollama
