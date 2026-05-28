@@ -338,8 +338,8 @@ class SurveillanceEngine:
                     new_items_count += 1
                     self._log(f"Analyse IA de l'article : '{title}' (Prix: {price})...")
                     
-                    # Validation IA via Ollama qwen2.5-coder:7b
-                    is_part = ai_filter.is_mechanical_part(title, ref)
+                    # Validation IA via Ollama qwen2.5-coder:7b (pre-filtre + prompt strict)
+                    is_part = ai_filter.is_mechanical_part(title, ref, url=url)
                     
                     if is_part:
                         self._log(f"-> [VALIDÉ par l'IA] C'est bien une pièce mécanique !")
@@ -399,7 +399,7 @@ class SurveillanceEngine:
                         else:
                             self._log("---> Alerte non envoyee (lien ntfy non configure)")
                     else:
-                        self._log(f"-> [REJETE par l'IA] Ce n'est pas une piece mecanique.")
+                        self._log(f"-> [REJETE] Pas une annonce de vente de piece detachee.")
                         # country est deja calcule avant les filtres (pas de double appel)
                         database.add_item(ref, title, url, price, is_part=0, source_domain=parsed_domain, country=country)
 

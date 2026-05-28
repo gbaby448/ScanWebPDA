@@ -17,28 +17,97 @@ def _sanitize_prompt_input(text, max_length=200):
     text = text.replace('\n', ' ').replace('\r', ' ')
     return text[:max_length]
 
-def is_mechanical_part(title, reference, ollama_url="http://localhost:11434"):
+# Domaines de forums, blogs et sources non-commerciales a exclure systematiquement
+_NON_COMMERCIAL_DOMAINS = [
+    "forum", "forums", "community", "reddit", "quora", "stackoverflow",
+    "wikipedia", "wiki", "howto", "blog", "blogspot", "wordpress",
+    "youtube", "dailymotion", "vimeo",
+    "trafic-amenage", "auto-evasion", "passion-ford", "forum-auto",
+    "l-argus", "caradisiac", "autoplus", "turbo.fr",
+    "techniques", "repair", "manual", "fiche-technique",
+]
+
+# Mots-cles de titres indiquant qu'il ne s'agit PAS d'une annonce de vente
+_REJECT_TITLE_KEYWORDS = [
+    "forum", "discussion", "topic", "thread", "question", "reponse",
+    "avis", "conseil", "aide", "probleme", "tuto", "tutoriel", "guide",
+    "fiche technique", "catalogue", "documentation", "manuel",
+    "youtube", "video", "photo", "image", "actualite", "news",
+    "wikipedia", "wikimeca",
+    "location", "louez", "louer", "prestation", "service", "reparation",
+    "diagnostic", "entretien",
+]
+
+# Mots-cles commerciaux qui confirment qu'il s'agit d'une vraie annonce de vente
+_SALE_TITLE_KEYWORDS = [
+    "vente", "vends", "vendre", "vend ", "occasion", "neuf", "neuve",
+    "achat", "acheter", "prix", "euro", "eur", "€",
+    "annonce", "leboncoin", "ebay", "ovoko", "oscaro", "opisto",
+    "b-parts", "mister-auto", "auto-doc", "allegro", "picclick",
+    "disponible", "stock", "livraison", "shipping", "buy", "sale", "sell",
+    "for sale", "zu verkaufen", "na sprzedaz", "kup", "acheter maintenant",
+]
+
+def _pre_filter_is_sale_listing(title: str, url: str) -> bool:
     """
-    Interroge le modèle local qwen2.5-coder:7b pour valider si le titre de l'annonce
-    correspond réellement à une pièce mécanique/physique automobile en lien avec la référence.
-    Retourne True si OUI, False si NON.
+    Filtre rapide (sans IA) pour eliminer les sources non-commerciales evidentes.
+    Retourne True si l'annonce semble etre une vraie offre de vente.
+    Retourne False si c'est clairement un forum, blog, tuto ou article de presse.
     """
-    url = f"{ollama_url}/api/generate"
+    title_lower = title.lower()
+    url_lower = url.lower()
+
+    # 1. Rejeter si le titre contient des mots de forum/discussion
+    for kw in _REJECT_TITLE_KEYWORDS:
+        if kw in title_lower:
+            return False
+
+    # 2. Rejeter si l'URL contient un indicateur de forum/blog
+    for domain_kw in _NON_COMMERCIAL_DOMAINS:
+        if domain_kw in url_lower:
+            return False
+
+    # 3. Valider si le titre contient au moins un indicateur commercial
+    for kw in _SALE_TITLE_KEYWORDS:
+        if kw in title_lower:
+            return True
+
+    # 4. Validation neutre : on laisse l'IA trancher si on ne sait pas
+    return True
+
+
+def is_mechanical_part(title, reference, url="", ollama_url="http://localhost:11434"):
+    """
+    Valide en 2 etapes si un titre d'annonce correspond a une vraie offre de vente
+    d'une piece mecanique automobile correspondant a la reference recherchee.
     
-    # Nettoyage anti-injection de prompt avant d'insérer dans le LLM
+    Etape 1 : pre-filtre rapide sans IA (forums, blogs, manuels -> rejetes instantanement)
+    Etape 2 : validation IA stricte (doit etre une annonce de vente de la piece exacte)
+    
+    Retourne True si valide, False sinon.
+    """
+    # --- Etape 1 : Pre-filtre rapide (sans appel reseau) ---
+    if not _pre_filter_is_sale_listing(title, url):
+        print(f"[Pre-filtre] Rejete (source non-commerciale): '{title[:80]}'")
+        return False
+
+    # --- Etape 2 : Validation IA avec prompt strict ---
+    api_url = f"{ollama_url}/api/generate"
+    
+    # Nettoyage anti-injection de prompt avant d'inserer dans le LLM
     safe_title = _sanitize_prompt_input(title, max_length=200)
     safe_reference = _sanitize_prompt_input(reference, max_length=100)
 
     prompt = (
-        f"Tu es un expert en mécanique automobile et en pièces de rechange.\n"
-        f"L'utilisateur recherche la référence suivante : '{safe_reference}'.\n"
-        f"Un robot de surveillance a trouvé un article sur le web :\n"
-        f"Titre de l'annonce : '{safe_title}'\n\n"
-        f"Consignes de validation :\n"
-        f"1. Détermine si cet article correspond réellement à une pièce détachée physique (neuve ou occasion) compatible ou liée à la recherche.\n"
-        f"2. Réponds 'NON' si l'article est un manuel technique, un jouet (miniature), un vêtement, un autocollant, un outil générique, une prestation de service, ou un objet publicitaire sans rapport direct.\n"
-        f"3. Réponds 'OUI' s'il s'agit d'une vraie pièce mécanique automobile physique.\n\n"
-        f"IMPORTANT : Réponds UNIQUEMENT par le mot 'OUI' ou 'NON'. Ne donne aucune explication ni aucune justification."
+        f"Tu es un expert en vente de pieces detachees automobiles.\n"
+        f"L'utilisateur cherche a ACHETER la piece suivante : '{safe_reference}'.\n"
+        f"Un robot a trouve ce titre sur internet : '{safe_title}'\n\n"
+        f"Reponds OUI uniquement si TOUTES ces conditions sont reunies :\n"
+        f"- C'est une annonce de VENTE (pas un forum, blog, tuto, video, article de presse)\n"
+        f"- La piece proposee est bien une PIECE DETACHEE PHYSIQUE (neuve ou d'occasion)\n"
+        f"- La piece correspond a ce que recherche l'utilisateur (meme type de piece ou meme reference)\n\n"
+        f"Reponds NON dans TOUS les autres cas (forum, discussion, service, reparation, miniature, accessoire, etc.)\n\n"
+        f"IMPORTANT : Reponds UNIQUEMENT par le mot OUI ou NON. Aucune explication."
     )
     
     payload = {
@@ -46,29 +115,25 @@ def is_mechanical_part(title, reference, ollama_url="http://localhost:11434"):
         "prompt": prompt,
         "stream": False,
         "options": {
-            "temperature": 0.0  # Pour un comportement déterministe
+            "temperature": 0.0
         }
     }
     
     try:
-        response = requests.post(url, json=payload, timeout=60)
+        response = requests.post(api_url, json=payload, timeout=60)
         if response.status_code == 200:
             result = response.json().get("response", "").strip().upper()
-            
-            # Nettoyage minimal au cas où le modèle aurait ajouté de la ponctuation
             if "OUI" in result:
                 return True
             elif "NON" in result:
                 return False
-                
-            # Log de secours si la réponse est inattendue
-            print(f"Ollama a retourné une réponse inattendue: '{result}'")
+            print(f"Ollama a retourne une reponse inattendue: '{result}'")
             return False
         else:
-            print(f"Ollama a retourné une erreur HTTP {response.status_code}")
+            print(f"Ollama a retourne une erreur HTTP {response.status_code}")
             return False
     except Exception as e:
-        print(f"Erreur de connexion à Ollama lors de l'analyse sémantique: {e}")
+        print(f"Erreur de connexion a Ollama lors de l'analyse semantique: {e}")
         return False
 
 def translate_to_french(text, ollama_url="http://localhost:11434"):
