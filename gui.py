@@ -1345,9 +1345,6 @@ class ScanWebApp(ctk.CTk):
 
     def _restart_app(self, popup):
         """Redémarre l'application."""
-        popup.destroy()
-        self.on_closing()
-        
         import subprocess
         try:
             if getattr(sys, 'frozen', False):
@@ -1359,6 +1356,9 @@ class ScanWebApp(ctk.CTk):
         except Exception as e:
             # Au cas ou Popen echouerait exceptionnellement
             pass
+            
+        popup.destroy()
+        self.on_closing()
         sys.exit(0)
 
     # ==========================================
