@@ -68,6 +68,9 @@ class ScanWebApp(ctk.CTk):
         # Liaison de la fermeture de fenêtre pour arrêter la surveillance
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
+        # Liaison du redimensionnement de la fenêtre pour le mode responsive
+        self.bind("<Configure>", self.on_window_resize)
+
         # Variables d'état
         self.ollama_online = False
         self.check_thread_running = True
@@ -538,6 +541,41 @@ class ScanWebApp(ctk.CTk):
         """Callback utilisé par le thread d'arrière-plan pour loguer de façon sécurisée."""
         self.after(0, lambda: self.log_to_console(message))
 
+    def _bind_mousewheel_to_children(self, widget, scroll_frame):
+        """Associe récursivement le défilement de la molette de la souris d'un widget et de ses enfants au cadre de défilement."""
+        # Windows & macOS
+        widget.bind("<MouseWheel>", lambda event: scroll_frame._on_mousewheel(event), add="+")
+        # Linux
+        widget.bind("<Button-4>", lambda event: scroll_frame._on_mousewheel(event), add="+")
+        widget.bind("<Button-5>", lambda event: scroll_frame._on_mousewheel(event), add="+")
+        
+        for child in widget.winfo_children():
+            self._bind_mousewheel_to_children(child, scroll_frame)
+
+    def on_window_resize(self, event):
+        """Ajuste dynamiquement l'interface lorsque la fenêtre est redimensionnée (mode responsive)."""
+        if event.widget == self:
+            width = event.width
+            if width < 960:
+                # Masquer le sous-titre pour gagner de la place
+                self.subtitle_label.pack_forget()
+                # Raccourcir le texte du bouton du header
+                if main.engine.running:
+                    self.header_btn_toggle.configure(text="⏹  Arrêter", width=100)
+                else:
+                    self.header_btn_toggle.configure(text="▶  Démarrer", width=100)
+                self.btn_check_update.configure(text="🔄 MAJ", width=80)
+            else:
+                # Réafficher le sous-titre
+                self.subtitle_label.pack_forget()
+                self.subtitle_label.pack(side="left", padx=10, pady=15)
+                # Restaurer les textes complets
+                if main.engine.running:
+                    self.header_btn_toggle.configure(text="⏹  Arrêter la Surveillance", width=230)
+                else:
+                    self.header_btn_toggle.configure(text="▶  Démarrer la Surveillance", width=230)
+                self.btn_check_update.configure(text="🔄 Mise à jour", width=140)
+
     def load_config_ui(self):
         """Charge la configuration initiale de ntfy et des cibles de recherche."""
         try:
@@ -674,6 +712,9 @@ class ScanWebApp(ctk.CTk):
                 )
                 btn_del.pack(side="right", padx=10, pady=5)
                 
+            # Liaison de la molette souris sur tous les éléments chargés
+            self._bind_mousewheel_to_children(self.scroll_frame, self.scroll_frame)
+            
         except Exception as e:
             self.log_to_console(f"Erreur de lecture de la liste des pièces: {e}")
 
@@ -855,9 +896,12 @@ class ScanWebApp(ctk.CTk):
                 fg_color="#d32f2f", 
                 hover_color="#b71c1c"
             )
-            # Mise à jour du bouton dans le header
+            # Mise à jour du bouton dans le header (s'adapte à la largeur de l'écran)
+            text_toggle = "⏹  Arrêter" if self.winfo_width() < 960 else "⏹  Arrêter la Surveillance"
+            width_toggle = 100 if self.winfo_width() < 960 else 230
             self.header_btn_toggle.configure(
-                text="⏹  Arrêter la Surveillance",
+                text=text_toggle,
+                width=width_toggle,
                 fg_color="#d32f2f",
                 hover_color="#b71c1c"
             )
@@ -871,9 +915,12 @@ class ScanWebApp(ctk.CTk):
                 fg_color="#2e7d32", 
                 hover_color="#1b5e20"
             )
-            # Mise à jour du bouton dans le header
+            # Mise à jour du bouton dans le header (s'adapte à la largeur de l'écran)
+            text_toggle = "▶  Démarrer" if self.winfo_width() < 960 else "▶  Démarrer la Surveillance"
+            width_toggle = 100 if self.winfo_width() < 960 else 230
             self.header_btn_toggle.configure(
-                text="▶  Démarrer la Surveillance",
+                text=text_toggle,
+                width=width_toggle,
                 fg_color="#2e7d32",
                 hover_color="#1b5e20"
             )
@@ -1087,6 +1134,9 @@ class ScanWebApp(ctk.CTk):
                 command=lambda i_id=item_id: self.delete_valid_item(i_id)
             )
             btn_del.pack(side="top", pady=4)
+
+        # Liaison de la molette souris sur tous les éléments chargés
+        self._bind_mousewheel_to_children(self.scroll_trouvees, self.scroll_trouvees)
 
     def delete_valid_item(self, item_id):
         """Supprime une pièce validée de la BDD et rafraîchit l'onglet."""
