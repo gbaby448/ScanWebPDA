@@ -51,7 +51,7 @@ def is_mechanical_part(title, reference, ollama_url="http://localhost:11434"):
     }
     
     try:
-        response = requests.post(url, json=payload, timeout=15)
+        response = requests.post(url, json=payload, timeout=60)
         if response.status_code == 200:
             result = response.json().get("response", "").strip().upper()
             
@@ -103,7 +103,7 @@ def translate_to_french(text, ollama_url="http://localhost:11434"):
     }
     
     try:
-        response = requests.post(url, json=payload, timeout=10)
+        response = requests.post(url, json=payload, timeout=60)
         if response.status_code == 200:
             translation = response.json().get("response", "").strip()
             if translation:
