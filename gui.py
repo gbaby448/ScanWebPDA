@@ -1344,27 +1344,32 @@ class ScanWebApp(ctk.CTk):
         ).pack(pady=14)
 
     def _restart_app(self, popup):
-        """Redémarre l'application en construisant la commande exacte du raccourci."""
+        """Redémarre l'application — processus completement detache du parent (Windows)."""
         import subprocess
         try:
             if getattr(sys, 'frozen', False):
-                # Version compilee PyInstaller (.exe) — relancer l'exe directement
-                subprocess.Popen([sys.executable])
+                # Version compilee PyInstaller (.exe)
+                subprocess.Popen(
+                    [sys.executable],
+                    creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+                )
             else:
-                # Script Python : on reconstruit la commande exacte du raccourci Windows
-                # Le raccourci fait : pythonw.exe "<install_dir>\gui.py"
-                # On utilise pythonw.exe pour eviter la fenetre console noire
-                pythonw = sys.executable.replace("python.exe", "pythonw.exe")
+                # Script Python : reconstituer la commande exacte du raccourci Windows
+                # pythonw.exe = sans fenetre console noire
+                python_dir = os.path.dirname(sys.executable)
+                pythonw = os.path.join(python_dir, "pythonw.exe")
                 if not os.path.exists(pythonw):
-                    pythonw = sys.executable  # fallback si pythonw.exe absent
+                    pythonw = sys.executable  # fallback
                 
-                # Chemin absolu du script gui.py dans le repertoire de l'application
                 install_dir = os.path.dirname(os.path.abspath(__file__))
                 gui_script = os.path.join(install_dir, "gui.py")
                 
+                # DETACHED_PROCESS : le processus enfant survit a la fermeture du parent
+                # CREATE_NEW_PROCESS_GROUP : groupe de processus independant
                 subprocess.Popen(
                     [pythonw, gui_script],
-                    cwd=install_dir
+                    cwd=install_dir,
+                    creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
                 )
         except Exception:
             pass

@@ -67,36 +67,87 @@ def _is_safe_url(url):
 
 def extract_og_metadata(url):
     """
-    Tente de récupérer le domaine source et le lien de l'image d'illustration (og:image).
+    Recupere le domaine source, l'image og:image et surtout le PRIX de l'annonce
+    en lisant les metadonnees structurees de la page produit.
     """
     domain = ""
     image_url = None
+    price = None
     try:
         parsed = urlparse(url)
         domain = parsed.netloc.replace("www.", "")
     except Exception:
         pass
 
-    # Guard anti-SSRF : on ne fait la requête que si l'URL est sûre
     if not _is_safe_url(url):
-        return domain, image_url
+        return domain, image_url, price
 
     try:
         headers = {
             "User-Agent": random.choice(USER_AGENTS),
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.5",
         }
-        # Timeout très court (3s) pour ne pas ralentir le cycle de surveillance
-        response = requests.get(url, headers=headers, timeout=3)
+        response = requests.get(url, headers=headers, timeout=5)
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, "html.parser")
+
+            # --- Image ---
             og_img = soup.find("meta", property="og:image")
             if og_img and og_img.get("content"):
                 image_url = og_img.get("content").strip()
-    except Exception:
-        pass  # Erreur ignorée silencieusement pour plus de robustesse
 
-    return domain, image_url
+            # --- Prix : plusieurs strategies par ordre de fiabilite ---
+            # 1. Schema.org JSON-LD (le plus fiable, utilise par eBay, Oscaro, etc.)
+            for script in soup.find_all("script", type="application/ld+json"):
+                try:
+                    import json as _json
+                    data = _json.loads(script.string or "")
+                    # Peut etre un objet ou une liste
+                    items = data if isinstance(data, list) else [data]
+                    for item in items:
+                        offers = item.get("offers") or item.get("Offers")
+                        if isinstance(offers, dict):
+                            p = offers.get("price") or offers.get("lowPrice")
+                            currency = offers.get("priceCurrency", "EUR")
+                            if p:
+                                price = f"{p} {currency}"
+                                break
+                        elif isinstance(offers, list) and offers:
+                            p = offers[0].get("price")
+                            currency = offers[0].get("priceCurrency", "EUR")
+                            if p:
+                                price = f"{p} {currency}"
+                                break
+                    if price:
+                        break
+                except Exception:
+                    pass
+
+            # 2. Balises meta Open Graph prix (LeBonCoin, Ovoko, etc.)
+            if not price:
+                for prop in ["product:price:amount", "og:price:amount", "price"]:
+                    tag = soup.find("meta", attrs={"property": prop}) or soup.find("meta", attrs={"name": prop})
+                    if tag and tag.get("content"):
+                        raw = tag["content"].strip()
+                        currency_tag = soup.find("meta", attrs={"property": "product:price:currency"})
+                        currency = currency_tag["content"] if currency_tag else "EUR"
+                        price = f"{raw} {currency}"
+                        break
+
+            # 3. Regex dans le HTML visible (dernier recours)
+            if not price:
+                import re as _re
+                # Chercher un pattern de prix dans le texte visible de la page
+                text = soup.get_text(" ", strip=True)[:3000]
+                m = _re.search(r'(\d{1,4}[,\.]?\d{0,2})\s*(?:€|EUR|PLN|zł|GBP|£)', text)
+                if m:
+                    price = m.group(0).strip()
+
+    except Exception:
+        pass
+
+    return domain, image_url, price
 
 def get_country_badge(url):
     """Identifie le pays d'origine d'un article à partir de son URL."""
@@ -355,19 +406,21 @@ class SurveillanceEngine:
                         else:
                             translated_title = None
 
-                        # Extraction de l'image et du domaine source
-                        domain, image_url = extract_og_metadata(url)
+                        # Extraction de l'image, du domaine source ET DU PRIX reel
+                        domain, image_url, scraped_price = extract_og_metadata(url)
                         # S'assurer que domain est coherent avec parsed_domain
                         if not domain:
                             domain = parsed_domain
-                        self._log(f"   Source : {domain} | Apercu Image : {image_url is not None}")
+                        # Utiliser le prix scrape s'il est meilleur que celui du snippet
+                        final_price = scraped_price if scraped_price else price
+                        self._log(f"   Source : {domain} | Prix : {final_price} | Image : {image_url is not None}")
                         
-                        # Enregistrer en BDD avec image, domaine, pays et traduction
+                        # Enregistrer en BDD avec image, domaine, pays, prix reel et traduction
                         database.add_item(
                             reference=ref, 
                             title=title, 
                             url=url, 
-                            price=price, 
+                            price=final_price, 
                             is_part=1, 
                             image_url=image_url, 
                             source_domain=domain,
@@ -386,7 +439,7 @@ class SurveillanceEngine:
                                     ntfy_url,
                                     ref,
                                     title,
-                                    price,
+                                    final_price,
                                     url,
                                     country=country,
                                     translated_title=translated_title
